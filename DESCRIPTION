@@ -15,4 +15,5 @@ Imports:
     glue,
     lubridate,
     purrr,
-    rlang
+    rlang,
+    tibble
