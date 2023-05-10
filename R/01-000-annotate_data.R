@@ -168,8 +168,9 @@ annotate_data <- function(.dataset, .codebook, .guess_attribute = FALSE) {
         .is_internal = FALSE,
         .arg_name = c(".codebook", ".dataset"))
       # Ensure the codebook has attributes used by the package's functions
-      .check_right_attrs_codebook(
+      .check_right_attrs(
         .codebook,
+        .obj_type = "list",
         .fn_name,
         .file_name,
         .is_internal = FALSE,
