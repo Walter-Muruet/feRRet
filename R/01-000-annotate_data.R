@@ -142,7 +142,13 @@ annotate_data <- function(.dataset, .codebook, .guess_attribute = FALSE) {
       .arg_name = ".guess_attribute")
     # Either a list of attributes to annotate the dataset must be provided
     # or the option to guess must be set to TRUE
-    .check_annotate_data_args_atrr_guess(.codebook, .guess_attribute)
+    .check_not_missing_or_replacement(
+      .codebook,
+      .guess_attribute,
+      .fn_name,
+      .file_name,
+      .is_internal = FALSE,
+      .arg_name = c(".codebook", ".guess_attribute"))
     # If an object has been passed to .codebook, it should be a list
     # Names in the list must match columns in .dataset
     if (!rlang::is_missing(.codebook)) {
@@ -162,7 +168,7 @@ annotate_data <- function(.dataset, .codebook, .guess_attribute = FALSE) {
         .is_internal = FALSE,
         .arg_name = c(".codebook", ".dataset"))
       # Ensure the codebook has attributes used by the package's functions
-      .check_right_attrs(
+      .check_right_attrs_codebook(
         .codebook,
         .fn_name,
         .file_name,
@@ -170,41 +176,6 @@ annotate_data <- function(.dataset, .codebook, .guess_attribute = FALSE) {
         .arg_name = ".codebook")
     }
   }
-
-#' Check either .codebook is present or attribute guessing is allowed
-#'
-#' If the argument `.codebook` is missing, the function can try to guess the
-#'  correct value for predefined attributes. However, because this is still
-#'  experimental, the user must explicitly enable this functionality with the
-#'  `.guess_attributes` argument. If neither `.codebook` is passed, and
-#'  `.guess_attributes` is `FALSE`, this function will false and throw the
-#'  appropriate error.
-#'
-#' @importFrom rlang is_missing
-#'
-#' @param .codebook A named list.
-#' @param .guess_attributes A logical. If `.codebook` is missing,
-#'  `.guess_attributes` should be `TRUE`
-#'
-#' @returns A error if both `.codebook` is missing and `.guess_attributes` is
-#'  `FALSE`, `NULL` otherwise
-#'
-#' @noRd
-.check_annotate_data_args_atrr_guess <- function(.codebook, .guess_attribute) {
-  if (rlang::is_missing(.codebook) && !.guess_attribute) {
-    .err_msg_1 <- glue::glue_col("In {red `annotate_data`}:")
-    .err_msg_2 <- glue::glue_col("Either {silver `.codebook`} must be provided")
-    .err_msg_3 <- glue::glue_col("Or {silver `.guess_attribure`} must be `TRUE`")
-
-    rlang::abort(
-      message = glue::glue_col("{.err_msg_1} {.err_msg_2} {.err_msg_3}"),
-      class = "MissingArg",
-      .in_function = "annotate_data",
-      .in_file = "annotate_data.R",
-      .internal = FALSE,
-      .data = NULL)
-  }
-}
 
 # Internals --------------------------------------------------------------------
 #' Annotate a dataset

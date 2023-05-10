@@ -21,6 +21,13 @@
 #' @param named_2 A named object. Its length should be greater or equal to
 #'  `named_1`, although this is not enforced.
 #'
+#' @param .maybe_missing An argument passed to a function that can be missing.
+#'
+#' @param .lgl_replacement A logical. Indicates the action that must be
+#'  performed if the argument `.maybe_missing` refers to is missing.
+#'
+#' @param name description
+#'
 #' @param .fn_name A character string. Name of the function where the error
 #'  happened.
 #'
@@ -75,7 +82,7 @@
     }
   }
 
-.check_right_attrs <- function(
+.check_right_attrs_codebook <- function(
     .codebook,
     .fn_name,
     .file_name,
@@ -87,9 +94,26 @@
     names()
 
   if(!all(.req_attrs %in% .codebook_attrs)) {
-    .err_miss_attrs(.codebook_attrs, .fn_name, .file_name, .is_internal, .arg_name, .req_attrs)
+    .err_miss_attrs(
+      .codebook_attrs,
+      .fn_name,
+      .file_name,
+      .is_internal,
+      .arg_name,
+      .req_attrs)
   }
+}
 
+.check_not_missing_or_replacement <-
+  function(.maybe_missing,
+           .lgl_replacement,
+           .fn_name,
+           .file_name,
+           .is_internal,
+           .arg_name) {
+  if (rlang::is_missing(.maybe_missing) && !.lgl_replacement) {
+    .err_missing_no_replacement(.fn_name, .file_name, .is_internal, .arg_name)
+  }
 }
 
 #' Warning messages
@@ -251,4 +275,19 @@
       .in_file = .file_name,
       .data = list(codebook_attrs = .codebook_attrs,
                    missing_attrs = .miss_req_attrs))
+  }
+
+.err_missing_no_replacement <-
+  function(.fn_name, .file_name, .is_internal, .arg_name) {
+    .err_msg_1 <- glue::glue_col("In {red `.fn_name`}:")
+    .err_msg_2 <- glue::glue_col("Either {silver `.arg_name[1]`} must be provided")
+    .err_msg_3 <- glue::glue_col("Or {silver `.arg_name[2]`} must be `TRUE`")
+
+    rlang::abort(
+      message = glue::glue_col("{.err_msg_1} {.err_msg_2} {.err_msg_3}"),
+      class = "MissingArg",
+      .internal = .is_internal,
+      .in_function = .fn_name,
+      .in_file = .file_name,
+      .data = NULL)
   }
