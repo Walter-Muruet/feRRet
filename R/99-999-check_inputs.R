@@ -5,7 +5,7 @@
 #' @importFrom purrr transform
 #' @importFrom tibble is_tibble
 #'
-#' @param .dataset An object expected to be of type `tibble` or `dataframe`.
+#' @param .dataset An object expected to be of type `tibble` or `data.frame`.
 #'
 #' @param .lst An object expected to be of type `list`.
 #'
@@ -26,7 +26,11 @@
 #' @param .lgl_replacement A logical. Indicates the action that must be
 #'  performed if the argument `.maybe_missing` refers to is missing.
 #'
-#' @param name description
+#' @param .col A character string. A dataset column name.
+#'
+#' @param .obj An R object, usually a `list`, `data.frame` or `tibble`
+#'
+#' @param .obj_type A character string. Indicates how to process the `obj`.
 #'
 #' @param .fn_name A character string. Name of the function where the error
 #'  happened.
@@ -40,7 +44,7 @@
 #' @param .arg_name A character string. The name(s) of the argument(s) that raised
 #'  the error.
 #'
-#' @returns An error if `dataset` is not of type tibble or dataframe, `NULL`
+#' @returns An error if `dataset` is not of type tibble or data.frame, `NULL`
 #'  otherwise.
 #'
 #'  @noRd
@@ -82,27 +86,43 @@
     }
   }
 
-.check_right_attrs_codebook <- function(
-    .codebook,
+.check_right_attrs <- function(
+    .obj,
+    .obj_type = c("list","dataset"),
     .fn_name,
     .file_name,
-    .is_internal = FALSE,
-    .arg_name = ".codebook",
+    .is_internal,
+    .arg_name,
     .req_attrs = c("full_label", "short_label", "describe_as")) {
-  .codebook_attrs <-
-    purrr::transpose(.codebook) %>%
-    names()
 
-  if(!all(.req_attrs %in% .codebook_attrs)) {
-    .err_miss_attrs(
-      .codebook_attrs,
-      .fn_name,
-      .file_name,
-      .is_internal,
-      .arg_name,
-      .req_attrs)
+  .fn <- paste0(".check_right_attrs","_",.obj_type[1])
+
+  .obj_attrs <- do.call(.fn, list(.obj, .req_attrs))
+
+  .num_matches <- sum(unlist(.obj_attrs))
+
+  if(.num_matches == 0) {
+    .err_miss_attrs(.fn_name, .file_name, .is_internal, .arg_name, .req_attrs)
+  } else if (.num_matches < length(.obj)) {
+    .warn_args_missing_from_elmnts(names(.obj_attrs)[.obj_attrs], .fn_name, .arg_name)
+  } else {
+    return(NULL)
   }
 }
+
+.check_right_attrs_list <-
+  function(.lst, .req_attrs) {
+    .lst %>%
+      purrr::map(function(x) names(x)) %>%
+      purrr::map(function(x)  all(.req_attrs %in% x))
+  }
+
+.check_right_attrs_dataset <-
+  function(.dataset, .req_attrs) {
+    .dataset %>%
+      purrr::map(function(x) names(attributes(x))) %>%
+      purrr::map(function(x)  all(.req_attrs %in% x))
+  }
 
 .check_not_missing_or_replacement <-
   function(.maybe_missing,
@@ -115,6 +135,21 @@
     .err_missing_no_replacement(.fn_name, .file_name, .is_internal, .arg_name)
   }
 }
+
+.check_col_in_data <-
+  function(.col, .dataset, .fn_name, .file_name, .is_internal,.arg_name) {
+    if(!.col %in% names(.dataset)) {
+      .err_col_not_in_data(.fn_name, .file_name, .is_internal,.arg_name)
+    }
+
+  }
+
+.check_vctr_is_right <-
+  function(.vctr, .mode, .length, .fn_name, .file_name, .is_internal, .arg_name) {
+    if(!is.vector(.vctr, mode = .mode) || (length(.vctr) != .length)) {
+      .err_wrong_vector(.vctr, .mode, .length, .fn_name, .file_name, .is_internal, .arg_name)
+    }
+  }
 
 #' Warning messages
 #'
@@ -136,12 +171,20 @@
 .warn_partly_matching_names <- function(.fn_name, .arg_name) {
 
   .wrn_msg_1 <- glue::glue_col("In {red `{.fn_name}`}:")
-  .wrn_msg_2 <- glue::glue_col("Only {bold some} names in") #{silver `{.arg_name}}`")
+  .wrn_msg_2 <- glue::glue_col("Only {bold some} names in")
   .wrn_msg_3 <- glue::glue_col("{silver `{.arg_name[1]}`}")
   .wrn_msg_4 <- glue::glue_col("matched those in {silver `{.arg_name[2]}`}")
   rlang::warn(
     message = glue::glue_col("{.wrn_msg_1} {.wrn_msg_2} {.wrn_msg_3} {.wrn_msg_4}"))
-  print(".warn_partly_matching_names")
+}
+
+.warn_args_missing_from_elmnts <- function(.complete_elmnts, .fn_name, .arg_name) {
+
+  .wrn_msg_1 <- glue::glue_col("In {red `{.fn_name}`}:")
+  .wrn_msg_2 <- glue::glue_col("Only elements: {.complete_elmnts}")
+  .wrn_msg_3 <- glue::glue_col("have all required attributes")
+  rlang::warn(
+    message = glue::glue_col("{.wrn_msg_1} {.wrn_msg_2} {.wrn_msg_3}"))
 }
 
 #' Error messages
@@ -152,7 +195,7 @@
 #'
 #' @importFrom rlang abort
 #'
-#' @param .nondataset An object that was expected to be a tibble or dataframe.
+#' @param .nondataset An object that was expected to be a tibble or data.frame.
 #'
 #' @param .nonlst An object that was expected to be a list.
 #'
@@ -169,7 +212,7 @@
 #'  the error.
 #'
 #' @param .named_1,.named_2 Objects which elements are named (i.e. A list and
-#'  a dataframe).
+#'  a data.frame).
 #'
 #' @param .codebook_attrs Names of elements found in a codebook list.
 #'
@@ -181,7 +224,7 @@
   .actual_type <- class(.nondataset)
   .err_msg_1 <- glue::glue_col("In {red `{.fn_name}`}: Type Error")
   .err_msg_2 <- glue::glue_col("Argument {silver `{.arg_name}`}")
-  .err_msg_3 <- glue::glue_col("must be either a {cyan Tibble} or {cyan DataFrame}")
+  .err_msg_3 <- glue::glue_col("must be either a {cyan Tibble} or {cyan data.frame}")
   .err_msg_4 <- glue::glue_col("but was {magenta {.actual_type}}")
 
   rlang::abort(
@@ -260,12 +303,12 @@
   }
 
 .err_miss_attrs <-
-  function(.codebook_attrs, .fn_name, .file_name, .is_internal, .arg_name, .req_attrs) {
-    .miss_req_attrs <- .req_attrs[!(.req_attrs %in% .codebook_attrs)]
+  function(.fn_name, .file_name, .is_internal, .arg_name, .req_attrs) {
+
     .err_msg_1 <- glue::glue_col("In {red `{.fn_name}`}: Missing attributes")
     .err_msg_2 <- glue::glue_col("{silver `{.arg_name}`}")
-    .err_msg_3 <- glue::glue_col("is missing required attributes:")
-    .err_msg_4 <- glue::glue_col("{.codebook_attrs}")
+    .err_msg_3 <- glue::glue_col("is missing one or more required attributes:")
+    .err_msg_4 <- glue::glue_col("{.req_attrs}")
 
     rlang::abort(
       message = glue::glue_col("{.err_msg_1}; {.err_msg_2} {.err_msg_3} {.err_msg_4}"),
@@ -273,8 +316,7 @@
       .internal = .is_internal,
       .in_function = .fn_name,
       .in_file = .file_name,
-      .data = list(codebook_attrs = .codebook_attrs,
-                   missing_attrs = .miss_req_attrs))
+      .data = NULL)
   }
 
 .err_missing_no_replacement <-
@@ -291,3 +333,38 @@
       .in_file = .file_name,
       .data = NULL)
   }
+
+.err_col_not_in_data <- function( .fn_name, .file_name, .is_internal, .arg_name) {
+  .err_msg_1 <- glue::glue_col("In {red `{.fn_name}`}:")
+  .err_msg_2 <- glue::glue_col("Could not find {silver `{.arg_name[1]}`}")
+  .err_msg_3 <- glue::glue_col("in {silver `{.arg_name[2]}`}")
+
+  rlang::abort(
+    message = glue::glue_col("{.err_msg_1} {.err_msg_2} {.err_msg_3}"),
+    class = "KeyError",
+    .internal = .is_internal,
+    .in_function = .fn_name,
+    .in_file = .file_name,
+    .data = NULL)
+}
+
+.err_wrong_vector <-
+  function(.vctr, .mode, .length, .fn_name, .file_name, .is_internal, .arg_name) {
+    .vctr_type <- mode(.vctr)
+    .vctr_len <- length(.vctr)
+
+    .err_msg_1 <- glue::glue_col("In {red `.fn_name`}:")
+    .err_msg_2 <- glue::glue_col("{silver `.arg_name`} was expected to be of")
+    .err_msg_3 <- glue::glue_col("mode {cyan {.mode}} and length {cyan {.length}}")
+    .err_msg_4 <- glue::glue_col("but was of mode {magenta {.vctr_type}} and lenght {magenta {.vctr_len}}")
+
+    rlang::abort(
+      message = glue::glue_col("{.err_msg_1} {.err_msg_2} {.err_msg_3} {.err_msg_4}"),
+      class = "TypeError",
+      .internal = .is_internal,
+      .in_function = .fn_name,
+      .in_file = .file_name,
+      .data = .vctr)
+  }
+
+
