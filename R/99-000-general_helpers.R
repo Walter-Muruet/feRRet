@@ -90,3 +90,39 @@
   return("ignore")
 }
 #------------------------------------------------------------------------------
+#' Prettier than pretty numbers
+#'
+#' A simple warper function to prettyNum to avoid constantly specifying the
+#'  same arguments over and over.
+#'
+#' @param .x A number to be prettified.
+#' @param .digits number of **decimals** (not significant figures) the output
+#'  should have.
+#'
+#' @returns A character string with a prettified number.
+#'
+#' @noRd
+.prettier_nums <- function(.x, .digits = 0) {
+  .x <- round(.x, .digits)
+  prettyNum(.x, big.mark = ",", scientific = FALSE,
+            nsmall = .digits)
+}
+
+#-------------------------------------------------------------------------------
+#' Extract column attributes from a data set
+#'
+#' A convenient function which can extract an specific attribute from the
+#'  columns of a data.frame or tibble object.
+#'
+#' @importFrom purrr map_chr
+#'
+#' @param .dataset An object of class `tibble` or `data.frame`.
+#' @param  .attr A character string. Which attribute to extract.
+#'
+#' @returns A named character vector with the attribute's values.
+#'
+#' @noRd
+.extract_attrs <- function(.dataset, .attr) {
+  .dataset %>%
+    purrr::map_chr(function(.x) attr(.x, .attr, exact = TRUE))
+}
